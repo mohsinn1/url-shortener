@@ -2,7 +2,7 @@
 
 A lightning-fast, full-stack URL shortening service built with **FastAPI**, **MongoDB**, and a completely custom, premium "AI-startup" aesthetic frontend (Vanilla JS/CSS). 
 
-Designed to be lightweight, incredibly responsive, and deploy-ready for Serverless environments like **Vercel**.
+Designed to be lightweight, incredibly responsive, and deploy-ready.
 
 ## ✨ Features
 * **Premium UI:** A custom-built, dark-mode interface featuring atmospheric overlapping radial gradients, pill-shaped UI components, and fluid micro-animations.
