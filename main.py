@@ -1,100 +1,59 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from database import collection
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import random, string
 from pymongo import ReturnDocument
+from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allows any frontend to connect
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class URLCreate(BaseModel):
     url: str
 
 
+
 @app.post("/shorten", status_code=201)
-def create_short_url(request: URLCreate):
-    pass
-    # 1. Generate the short code using your helper function. DONE
-    short = generate_code()
-
-    # 2. Build the dataument: Create a Python dictionary. DONE
-
-    data = {
-        'url' : request.url,
-        'shortCode' : short,
-        'createdAt': datetime.now(timezone.utc),
-        'updatedAt': datetime.now(timezone.utc),
-        'accessCount': 0
-
-    }
-
-
-
-    # 3. Save to MongoDB: collection.insert_one(your_dictionary) DONE
-
-    collection.insert_one(data)
+def create_short_url(payload: URLCreate, request: Request):
     
-    # 4. Cleanup & Return: MongoDB adds a weird object ID called '_id'. 
-    #    Convert it to a string, rename it to 'id' (per the requirements),  DONE
-    data['id'] = str(data['_id'])
+    original_url = payload.url
+    if not original_url.startswith(("http://", "https://")):
+        original_url = "https://" + original_url
 
-    #    remove the original '_id', and return the dictionary! DONE
-
-    del data['_id']
-    return data
-
-
-
-def generate_code():
-    code = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
-    return code
-
-
-
-@app.get("/shorten/{shortCode}")
-def get_url(shortCode:str):
-    search = collection.find_one({'shortCode': shortCode})
-    if not search:
-        raise HTTPException(status_code=404, detail="URL Not Found")
-    collection.update_one({'shortCode': shortCode},{"$inc": {'accessCount': 1}})
-    search['accessCount'] += 1
-    search['id'] = str(search['_id'])
-    del search['_id']
-    return search
-
-
-@app.put("/shorten/{shortCode}")
-def update_url(shortCode: str, request: URLCreate):
-    search = collection.find_one({'shortCode':shortCode})
-    if not search:
-        raise HTTPException(status_code=404, detail="URL Not Found")
-    collection.update_one({'shortCode':shortCode}, {'$set': {'url': request.url, 'updatedAt': datetime.now(timezone.utc)}})
-    search['url'], search['updatedAt'] = request.url, datetime.now(timezone.utc)
-    search['id'] = str(search['_id'])
-    del search['_id']
-    return search
-
-
-@app.delete("/shorten/{shortCode}", status_code=204)
-def delete_url(shortCode:str):
-    result = collection.delete_one({'shortCode': shortCode})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="URL Not Found")
-
-
-@app.get("/shorten/{shortCode}/stats")
-def get_stats(shortCode:str):
-    search = collection.find_one({'shortCode': shortCode})
-    if not search:
-        raise HTTPException(status_code=404, detail="URL Not Found")
-    search['id'] = str(search['_id'])
-    del search['_id']
-    return search
+    options = string.ascii_letters + string.digits
+    code = ''.join(random.choices(options, k=6))
+    base = str(request.base_url)
+    link = base + code
+    collection.insert_one(
+        {
+            'url' : original_url,
+            'code' : code
+        }
+    )
+    return link
 
 
 
+@app.get('/{short_code}')
+def redirect_url(short_code : str):
+    target_url = collection.find_one({'code': short_code})
+    if not target_url:
+        raise HTTPException(404, detail="URL not found")
+    else:
+        return RedirectResponse(target_url['url'])
+    
 
-
-
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
 
 
