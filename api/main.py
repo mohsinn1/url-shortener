@@ -1,5 +1,19 @@
+import os
+import certifi
+from pymongo import MongoClient
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from database import collection
+
+load_dotenv()
+MONGO_URI = os.getenv("MONGO_URI")
+# Fallback to localhost if MONGO_URI is missing (to prevent hard crashes locally)
+if not MONGO_URI:
+    client = MongoClient()
+else:
+    client = MongoClient(MONGO_URI, tlsCAFile=certifi.where()) 
+
+db = client.shortener_db
+collection = db.urls
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import random, string
